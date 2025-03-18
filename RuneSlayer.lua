@@ -20,7 +20,9 @@ local PlayerESP = {
     Font = Enum.Font.SourceSansBold,
     TextSize = 18,
     ShowDistance = true,
-    ShowHealth = true
+    ShowHealth = true,
+    ShowCoins = true,
+    ShowLevel = true
 }
 
 local CharmsESP = {
@@ -450,16 +452,21 @@ local function SetupMobsTab()
         mobDropdown:Refresh(#mobNames > 0 and mobNames or {"No mobs available"})
     end
 
-    local function getMobRootPart(mob)
-        return mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+    local function getMobCollisionPart(mob)
+        local torso = mob:FindFirstChild("Torso")
+        return torso and torso:FindFirstChild("CollisionPart")
     end
 
+
     local function updateMobHitbox(mob)
-        local rootPart = getMobRootPart(mob)
-        if rootPart and rootPart:IsA("BasePart") then
-            rootPart.Size = Vector3.new(initialHitboxSize, initialHitboxSize, initialHitboxSize)
+        local collisionPart = getMobCollisionPart(mob)
+        if collisionPart then
+            collisionPart.Size = Vector3.new(initialHitboxSize, initialHitboxSize, initialHitboxSize)
+            collisionPart.CanCollide = false
         end
     end
+
+
 
     local function processExistingMobs()
         for _, mob in ipairs(workspace.Alive:GetChildren()) do
@@ -467,6 +474,15 @@ local function SetupMobsTab()
                 updateMobHitbox(mob)
             end
         end
+    end
+
+
+
+    local mobFilter = function(mob)
+        return mob:IsA("Model") 
+            and not game.Players:GetPlayerFromCharacter(mob)
+            and mob:FindFirstChild("Torso")
+            and mob.Torso:FindFirstChild("CollisionPart")
     end
 
     Mobs:CreateSlider({
@@ -505,9 +521,9 @@ local function SetupMobsTab()
                         repeat 
                             task.wait(0.1)
                             attempts = attempts + 1
-                        until getMobRootPart(newMob) or attempts >= 10
+                        until getMobCollisionPart(newMob) or attempts >= 10
                         
-                        if getMobRootPart(newMob) then
+                        if getMobCollisionPart(newMob) then
                             updateMobHitbox(newMob)
                             refreshMobList()
                         end
@@ -555,7 +571,7 @@ local function SetupMobsTab()
         local closestDistance = math.huge
         local potentialTargets = {}
         for _, mob in ipairs(workspace.Alive:GetChildren()) do
-            if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and getMobRootPart(mob) then
+            if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and getMobCollisionPart(mob) then
                 local cleanName = mob.Name:gsub("%..*", "")
                 if table.find(targetMobs, cleanName) then
                     local distance = (rootPart.Position - mob:GetPivot().Position).Magnitude
@@ -576,7 +592,14 @@ local function SetupMobsTab()
         end
 
         if currentMob then
-            local mobPosition = currentMob:GetPivot().Position
+
+            local collisionPart = getMobCollisionPart(currentMob)
+            if not collisionPart then
+                currentMob = nil
+                return
+            end
+
+            local mobPosition = collisionPart.Position
             local gap = (rootPart.Position - mobPosition).Magnitude
             
             local trajectory = (mobPosition - rootPart.Position).Unit
@@ -684,7 +707,7 @@ local function SetupMobsTab()
 
     refreshMobList()
     task.spawn(function()
-        while task.wait(30) do
+        while task.wait(80) do
             refreshMobList()
         end
     end)
@@ -1028,8 +1051,13 @@ local function SetupESPTab()
     CreateCharmsControls()
     SetupMobsTab()
 end
-
 local function InitializeESP()
+
+    local isPlayer = function(mob)
+        return mob:IsA("Model") 
+            and game.Players:GetPlayerFromCharacter(mob)
+    end
+
     local function CreateESPComponents(player)
         if player == LocalPlayer then return end
         
@@ -1055,20 +1083,55 @@ local function InitializeESP()
 
         local billboard = createInstance("BillboardGui", {
             Adornee = head,
-            Size = UDim2.new(0, 200, 0, 50),
-            StudsOffset = Vector3.new(0, 2.5, 0),
+            Size = UDim2.new(0, 200, 0, 80),
+            StudsOffset = Vector3.new(0, 3.5, 0),
             AlwaysOnTop = true,
             ResetOnSpawn = false,
             Enabled = PlayerESP.Enabled,
             Parent = game:GetService("CoreGui")
         })
 
-        local textLabel = createInstance("TextLabel", {
-            Size = UDim2.new(1, 0, 1, 0),
+        local nameLabel = createInstance("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 20),
+            Position = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1,
             TextColor3 = PlayerESP.Color,
             TextSize = PlayerESP.TextSize,
             Font = PlayerESP.Font,
+            Text = player.Name.." (L )",
+            Parent = billboard
+        })
+
+        local distanceLabel = createInstance("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 20),
+            Position = UDim2.new(0, 0, 0, 20),
+            BackgroundTransparency = 1,
+            TextColor3 = PlayerESP.Color,
+            TextSize = PlayerESP.TextSize,
+            Font = PlayerESP.Font,
+            Text = "",
+            Parent = billboard
+        })
+
+        local healthLabel = createInstance("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 20),
+            Position = UDim2.new(0, 0, 0, 40),
+            BackgroundTransparency = 1,
+            TextColor3 = PlayerESP.Color,
+            TextSize = PlayerESP.TextSize,
+            Font = PlayerESP.Font,
+            Text = "",
+            Parent = billboard
+        })
+
+        local coinsLabel = createInstance("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 20),
+            Position = UDim2.new(0, 0, 0, 60),
+            BackgroundTransparency = 1,
+            TextColor3 = PlayerESP.Color,
+            TextSize = PlayerESP.TextSize,
+            Font = PlayerESP.Font,
+            Text = "",
             Parent = billboard
         })
 
@@ -1085,7 +1148,10 @@ local function InitializeESP()
 
         return {
             billboard = billboard,
-            textLabel = textLabel,
+            nameLabel = nameLabel,
+            distanceLabel = distanceLabel,
+            healthLabel = healthLabel,
+            coinsLabel = coinsLabel,
             highlight = highlight,
             humanoid = humanoid,
             rootPart = humanoidRootPart
@@ -1107,33 +1173,61 @@ local function InitializeESP()
                 espData.highlight.Enabled = highlightVisible
                 if CharmsESP.PulseEnabled then
                     local pulse = math.sin(tick() * CharmsESP.PulseSpeed) * 0.5 + 0.5
-                    espData.highlight.FillColor = Color3.new(
-                        CharmsESP.Color.R * pulse,
-                        CharmsESP.Color.G * pulse,
-                        CharmsESP.Color.B * pulse
+                    espData.highlight.FillColor = Color3.fromRGB(
+                        CharmsESP.Color.R * 255 * pulse,
+                        CharmsESP.Color.G * 255 * pulse,
+                        CharmsESP.Color.B * 255 * pulse
                     )
                     espData.highlight.OutlineColor = espData.highlight.FillColor
                 end
             end
-
-            if billboardVisible and espData.textLabel and LocalPlayer.Character then
+            if billboardVisible and LocalPlayer.Character then
                 local rootPos = espData.rootPart.Position
                 local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if not localRoot then return end
                 
                 local distance = (localRoot.Position - rootPos).Magnitude
-                local infoParts = { player.Name }
-                
+                espData.nameLabel.TextColor3 = PlayerESP.Color
+                espData.distanceLabel.Visible = PlayerESP.ShowDistance
+                espData.healthLabel.Visible = PlayerESP.ShowHealth
+                espData.coinsLabel.Visible = PlayerESP.ShowCoins
+
                 if PlayerESP.ShowDistance then
-                    table.insert(infoParts, string.format("[%dm]", math.floor(distance)))
+                    espData.distanceLabel.Text = string.format("📏 %dm", math.floor(distance))
                 end
                 if PlayerESP.ShowHealth and espData.humanoid then
-                    table.insert(infoParts, string.format("[%dhp]", math.floor(espData.humanoid.Health)))
+                    local health = math.floor(espData.humanoid.Health)
+                    local healthBar = "■■■■■■■■■■"
+                    local filled = math.floor((health/100) * 10)
+                    healthBar = healthBar:sub(1, filled) .. ("□□□□□□□□□□"):sub(filled + 1)
+                    
+                    local r = math.clamp(1 - (health/100), 0, 1)
+                    local g = math.clamp(health/100, 0, 1)
+                    local healthColor = Color3.fromRGB(r * 255, g * 255, 0)
+                    
+                    espData.healthLabel.Text = string.format("❤️ %s %d%%", healthBar, health)
+                    espData.healthLabel.TextColor3 = healthColor
                 end
-                
-                espData.textLabel.Text = table.concat(infoParts, " ")
-                espData.textLabel.TextColor3 = PlayerESP.Color
-                espData.textLabel.TextSize = PlayerESP.TextSize
+                if PlayerESP.ShowCoins then
+                    local mob = espData.rootPart.Parent
+                    if isPlayer(mob) then
+                        local success, coins = pcall(function()
+                            return workspace.Alive[mob.Name].BoolValues.Coins.Value
+                        end)
+                        if success then
+                            espData.coinsLabel.Text = string.format("🟡 %s", coins)
+                        end
+                    end
+                end
+                local mob = espData.rootPart.Parent
+                if isPlayer(mob) then
+                    local success, level = pcall(function()
+                        return workspace.Alive[mob.Name].BoolValues.Level.Value
+                    end)
+                    if success then
+                        espData.nameLabel.Text = string.format("%s (L %d)", player.Name, level)
+                    end
+                end
             end
         end)
     end
