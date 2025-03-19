@@ -643,7 +643,7 @@ local function SetupMobsTab()
     
         if currentMob then
             local mobRoot = currentMob:FindFirstChild("HumanoidRootPart") or currentMob:GetPivot()
-            local targetPosition = mobRoot.Position + Vector3.new(0, 3, 0)  -- Offset for body height
+            local targetPosition = mobRoot.Position + Vector3.new(0, 3, 0)  -- Offset for body height HAAAAAGHA
             local direction = (targetPosition - rootPart.Position)
             local distance = direction.Magnitude
             local baseSpeed = travelSpeed * 0.25
