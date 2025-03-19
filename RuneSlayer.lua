@@ -67,27 +67,7 @@ local function CreateMainWindow()
 end
 
 
-local function OpenInvite()
-    local InviteCode = "2sZV8k3B97"
-    local request = (syn and syn.request) or (fluxus and fluxus.request) or (http and http.request) or http_request or request
-    if request then
-        request({
-            Url = "http://127.0.0.1:6463/rpc?v=1",
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-                ["Origin"] = "https://discord.com"
-            },
-            Body = HttpService:JSONEncode({
-                cmd = "INVITE_BROWSER",
-                args = {code = InviteCode},
-                nonce = HttpService:GenerateGUID(false)
-            })
-        })
-    end
-end
 
-OpenInvite()
 
 
 local function SetupTeleportTab()
@@ -624,6 +604,7 @@ local function SetupMobsTab()
         rootPart.AssemblyAngularVelocity = Vector3.new()
         local closestDistance = math.huge
         local closestMob = nil
+        
         for _, mob in ipairs(workspace.Alive:GetChildren()) do
             if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                 local cleanName = mob.Name:gsub("%..*", "")
@@ -643,37 +624,62 @@ local function SetupMobsTab()
     
         if currentMob then
             local mobRoot = currentMob:FindFirstChild("HumanoidRootPart") or currentMob:GetPivot()
-            local targetPosition = mobRoot.Position + Vector3.new(0, 3, 0)  -- Offset for body height HAAAAAGHA
+            local targetPosition = mobRoot.Position + Vector3.new(0, 3, 0)
             local direction = (targetPosition - rootPart.Position)
             local distance = direction.Magnitude
-            local baseSpeed = travelSpeed * 0.25
-            local speedMod = math.clamp(distance / 10, 0.5, 2)
-            local moveStep = direction.Unit * (baseSpeed * speedMod * 0.1)
-            local hover = Vector3.new(0, math.sin(tick() * 3) * 0.2, 0)
-            local groundSnap = Vector3.new(0, math.clamp(-rootPart.Position.Y, -1, 0), 0) * 0.5
-            local newPosition = rootPart.Position + moveStep + hover + groundSnap
-            local newCFrame = CFrame.new(newPosition) * CFrame.Angles(
-                math.rad(math.random(-2, 2)),
-                math.rad(math.random(-15, 15)),
-                math.rad(math.random(-2, 2))
-            )
-            rootPart.CFrame = rootPart.CFrame:Lerp(newCFrame, 0.35)
+        
+            local lookCFrame = CFrame.lookAt(rootPart.Position, targetPosition)
+            local baseOrientation = lookCFrame - lookCFrame.Position
+            local orbitRadius = 2.5
+            local orbitSpeed = 0.5 
+            local dodgeHeight = math.sin(tick() * 5) * 1.5
+        
             if distance < 15 then
-                rootPart.CFrame = CFrame.lookAt(rootPart.Position, targetPosition)
-              
-            end
-        else
-     
-            local idleOffset = Vector3.new(
-                math.sin(tick() * 2) * 2,
-                math.cos(tick() * 2) * 0.5,
-                math.cos(tick() * 2) * 2
-            )
-            rootPart.Position = rootPart.Position + idleOffset
+       
+                local angle = tick() * orbitSpeed % (math.pi * 2)
+                local orbitOffset = Vector3.new(
+                    math.cos(angle) * orbitRadius,
+                    3 + dodgeHeight,
+                    math.sin(angle) * orbitRadius
+                )
+        
+                local combatPosition = targetPosition + orbitOffset
+                local combatCFrame = CFrame.new(combatPosition) * baseOrientation
+                
+                if math.sin(tick() * 3) > 0.7 then
+                    combatCFrame = combatCFrame * CFrame.new(0, 0, -2)
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+        
+                rootPart.CFrame = rootPart.CFrame:Lerp(combatCFrame, 0.3)
+                
+                rootPart.Orientation = Vector3.new(
+                    math.clamp(rootPart.Orientation.X, -10, 10),
+                    rootPart.Orientation.Y,
+                    math.clamp(rootPart.Orientation.Z, -10, 10)
+                )
 
+            else
+                local approachSpeed = travelSpeed * 0.25
+                local moveStep = direction.Unit * (approachSpeed * 0.1)
+                rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(rootPart.Position + moveStep) * baseOrientation, 0.3)
+            end
+            
+        else 
+            for _, component in ipairs(character:GetDescendants()) do
+                if component:IsA("BasePart") then
+                    component.CanCollide = true
+                    component.CanTouch = true
+                end
+            end
+            humanoid.PlatformStand = false
+            humanoid.AutoRotate = true
+            rootPart.AssemblyLinearVelocity = Vector3.new()
         end
+                
         task.wait(math.random() * 0.1)
         rootPart.AssemblyLinearVelocity = Vector3.new()
+        
     end
 
     Mobs:CreateToggle({
