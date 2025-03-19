@@ -538,6 +538,55 @@ local function SetupMobsTab()
         end
     })
 
+
+    local function smoothMoveTo(position)
+        local character = LocalPlayer.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+
+        local camera = workspace.CurrentCamera
+        local direction = (position - rootPart.Position)
+        local distance = direction.Magnitude
+        direction = direction.Unit
+        local right = camera.CFrame.RightVector
+        local forward = camera.CFrame.LookVector
+        local moveVector = (forward * direction.Z) + (right * direction.X)
+        local baseSpeed = travelSpeed * 0.15
+        local speedMod = math.min(1, distance / 10)
+        local smoothOffset = moveVector * (baseSpeed * speedMod)
+        local hover = Vector3.new(0, math.sin(tick() * 5) * 0.2, 0)
+        local jitter = Vector3.new(
+            math.random(-0.05, 0.05),
+            math.random(-0.05, 0.05),
+            math.random(-0.05, 0.05)
+        )
+        local newCFrame = CFrame.new(rootPart.Position + smoothOffset + hover + jitter)
+        rootPart.CFrame = rootPart.CFrame:Lerp(newCFrame, 0.3)
+        rootPart.Orientation += Vector3.new(
+            math.random(-0.5, 0.5),
+            math.random(-1, 1),
+            math.random(-0.5, 0.5)
+        )
+    end
+
+    local function maintainNaturalState()
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid and rootPart then
+            humanoid.PlatformStand = true
+            humanoid.AutoRotate = false
+            
+            local floatOffset = Vector3.new(
+                math.sin(tick() * 2) * 0.3,
+                math.cos(tick() * 2.5) * 0.4,
+                math.cos(tick() * 2) * 0.3
+            )
+            rootPart.Position += floatOffset
+        end
+    end
+
     local function autoFarmLoop()
         local character = LocalPlayer.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -545,6 +594,8 @@ local function SetupMobsTab()
         local now = tick()
         
         if not rootPart or not humanoid then return end
+
+    
         if #targetMobs == 0 then
             for _, component in ipairs(character:GetDescendants()) do
                 if component:IsA("BasePart") then
@@ -567,95 +618,62 @@ local function SetupMobsTab()
         if currentMob and (not currentMob:FindFirstChild("Humanoid") or currentMob.Humanoid.Health <= 0 or (rootPart.Position - currentMob:GetPivot().Position).Magnitude > 150 or (now - currentMobTime) > 3) then
             currentMob = nil
         end
-
+        humanoid.PlatformStand = true
+        humanoid.AutoRotate = false
+        rootPart.AssemblyLinearVelocity = Vector3.new()
+        rootPart.AssemblyAngularVelocity = Vector3.new()
         local closestDistance = math.huge
-        local potentialTargets = {}
+        local closestMob = nil
         for _, mob in ipairs(workspace.Alive:GetChildren()) do
-            if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and getMobCollisionPart(mob) then
+            if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                 local cleanName = mob.Name:gsub("%..*", "")
                 if table.find(targetMobs, cleanName) then
-                    local distance = (rootPart.Position - mob:GetPivot().Position).Magnitude
-                    table.insert(potentialTargets, {mob = mob, distance = distance})
+                    local mobRoot = mob:FindFirstChild("HumanoidRootPart") or mob:GetPivot()
+                    local distance = (rootPart.Position - mobRoot.Position).Magnitude
+                    
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestMob = mob
+                    end
                 end
             end
         end
-
-        table.sort(potentialTargets, function(a, b) return a.distance < b.distance end)
-        local hasAliveTargets = #potentialTargets > 0
-
-         if hasAliveTargets then
-            currentMob = potentialTargets[1].mob
-            currentMobTime = now
-            lastMobFoundTime = now
-        else
-            currentMob = nil
-        end
-
+    
+        currentMob = closestMob
+    
         if currentMob then
-
-            local collisionPart = getMobCollisionPart(currentMob)
-            if not collisionPart then
-                currentMob = nil
-                return
-            end
-
-            local mobPosition = collisionPart.Position
-            local gap = (rootPart.Position - mobPosition).Magnitude
-            
-            local trajectory = (mobPosition - rootPart.Position).Unit
-            local heightMod = math.sin(tick()*5)*0.12 + 0.25
-            local positionJitter = Vector3.new(math.random(-0.3,0.3), 0, math.random(-0.3,0.3))
-            local dodgeMod = math.sin(tick()*3) * 1.5
-            
-            humanoid.PlatformStand = true
-            rootPart.Velocity = trajectory * (travelSpeed + dodgeMod) + Vector3.new(0, heightMod, 0)
-            
-            local smoothPosition = CFrame.lookAt(
-                rootPart.Position + (trajectory * (travelSpeed * 0.15)) + positionJitter,
-                mobPosition + positionJitter
-            ) * CFrame.Angles(
-                math.rad(math.random(-2,2)), 
-                math.rad(math.random(-15,15)), 
-                math.rad(math.random(-2,2))
+            local mobRoot = currentMob:FindFirstChild("HumanoidRootPart") or currentMob:GetPivot()
+            local targetPosition = mobRoot.Position + Vector3.new(0, 3, 0)  -- Offset for body height
+            local direction = (targetPosition - rootPart.Position)
+            local distance = direction.Magnitude
+            local baseSpeed = travelSpeed * 0.25
+            local speedMod = math.clamp(distance / 10, 0.5, 2)
+            local moveStep = direction.Unit * (baseSpeed * speedMod * 0.1)
+            local hover = Vector3.new(0, math.sin(tick() * 3) * 0.2, 0)
+            local groundSnap = Vector3.new(0, math.clamp(-rootPart.Position.Y, -1, 0), 0) * 0.5
+            local newPosition = rootPart.Position + moveStep + hover + groundSnap
+            local newCFrame = CFrame.new(newPosition) * CFrame.Angles(
+                math.rad(math.random(-2, 2)),
+                math.rad(math.random(-15, 15)),
+                math.rad(math.random(-2, 2))
             )
-
-            rootPart.CFrame = smoothPosition:Lerp(rootPart.CFrame, 0.7)
-
-            if gap < 18 then
-                local orbitAngle = math.rad(tick() * 180 % 360)
-                local orbitOffset = Vector3.new(math.cos(orbitAngle)*3, 2.75 + math.sin(tick()*5)*0.3, math.sin(orbitAngle)*3)
-                rootPart.CFrame = CFrame.new(mobPosition + orbitOffset) * CFrame.Angles(0, orbitAngle, 0)
-                rootPart.Velocity = Vector3.new(0, math.sin(tick()*4)*4, 0)
+            rootPart.CFrame = rootPart.CFrame:Lerp(newCFrame, 0.35)
+            if distance < 15 then
+                rootPart.CFrame = CFrame.lookAt(rootPart.Position, targetPosition)
+              
             end
         else
-            if not hasAliveTargets then
-                humanoid.PlatformStand = false
-                rootPart.Velocity = Vector3.new(0, 0, 0)
-                for _, part in ipairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                        part.CanTouch = true
-                    end
-                end
-            else
-                humanoid.PlatformStand = true
-                rootPart.Velocity = Vector3.new(0, 5, 0)
-                local hoverCFrame = CFrame.new(rootPart.Position) * CFrame.new(math.sin(tick()*5)*2, 3 + math.sin(tick()*3), math.cos(tick()*5)*2)
-                rootPart.CFrame = hoverCFrame:Lerp(rootPart.CFrame, 0.7)
+     
+            local idleOffset = Vector3.new(
+                math.sin(tick() * 2) * 2,
+                math.cos(tick() * 2) * 0.5,
+                math.cos(tick() * 2) * 2
+            )
+            rootPart.Position = rootPart.Position + idleOffset
 
-                for _, mob in ipairs(workspace.Alive:GetChildren()) do
-                    if mobFilter(mob) and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and getMobRootPart(mob) then
-                        local cleanName = cleanedNames[mob.Name]
-                        if table.find(targetMobs, cleanName) then
-                            currentMob = mob
-                            currentMobTime = now
-                            lastMobFoundTime = now
-                            break
-                        end
-                    end
-                end
-            end
         end
+        task.wait(math.random() * 0.1)
+        rootPart.AssemblyLinearVelocity = Vector3.new()
     end
 
     Mobs:CreateToggle({
@@ -666,16 +684,23 @@ local function SetupMobsTab()
             autoFarmEnabled = enabled
             if enabled then
                 lastMobFoundTime = tick()
-                farmConnection = RunService.Heartbeat:Connect(autoFarmLoop)
+                farmConnection = RunService.Heartbeat:Connect(function()
+                    pcall(autoFarmLoop) 
+                end)
             else
                 if farmConnection then
                     farmConnection:Disconnect()
                     farmConnection = nil
                 end
-                if LocalPlayer.Character then
-                    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
+                local character = LocalPlayer.Character
+                if character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+                    if humanoid and rootPart then
                         humanoid.PlatformStand = false
+                        humanoid.AutoRotate = true
+                        rootPart.AssemblyLinearVelocity = Vector3.new()
+                        humanoid:ChangeState(Enum.HumanoidStateType.Running)
                     end
                 end
                 currentMob = nil
