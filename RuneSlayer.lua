@@ -14,7 +14,7 @@ local Esp
 local Teleport
 local ESPCache = {}
 
-local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
+--local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
 
 local PlayerESP = {
     Enabled = false,
@@ -373,6 +373,10 @@ local function SetupMobsTab()
     local currentMobTime = 0
     local lastMobFoundTime = 0
 
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local MobsFolder = ReplicatedStorage:WaitForChild("Storage"):WaitForChild("Mobs")
+
+    
     local mobDropdown = Mobs:CreateDropdown({
         Name = "Select Mobs",
         Options = {"No mobs available"},
@@ -391,7 +395,7 @@ local function SetupMobsTab()
                     local rootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if humanoid and rootPart then
                         humanoid.PlatformStand = false
-                        rootPart.Velocity = Vector3.new(0,0,0)
+                        rootPart.Velocity = Vector3.new(0, 0, 0)
                         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
                             if part:IsA("BasePart") then
                                 part.CanCollide = true
@@ -403,13 +407,13 @@ local function SetupMobsTab()
             end
         end
     })
-
+    
     local function refreshMobList()
         local mobNames = {}
         local existing = {}
         local currentNames = {}
-
-        for _, mob in ipairs(workspace.Alive:GetChildren()) do
+    
+        for _, mob in ipairs(MobsFolder:GetChildren()) do
             if mobFilter(mob) and mob.Name:find("%S") then
                 local cleanName = mob.Name:gsub("%..*", "")
                 currentNames[cleanName] = true
@@ -424,22 +428,21 @@ local function SetupMobsTab()
                 cleanedNames[mob.Name] = cleanName
             end
         end
-
+    
         for cleanName in pairs(nameLookup) do
             if not currentNames[cleanName] and not table.find(mobNames, cleanName) then
                 table.insert(mobNames, cleanName)
             end
         end
-
+    
         mobDropdown:Refresh(#mobNames > 0 and mobNames or {"No mobs available"})
     end
-
+    
     local function getMobCollisionPart(mob)
         local torso = mob:FindFirstChild("Torso")
         return torso and torso:FindFirstChild("CollisionPart")
     end
-
-
+    
     local function updateMobHitbox(mob)
         local collisionPart = getMobCollisionPart(mob)
         if collisionPart then
@@ -447,6 +450,7 @@ local function SetupMobsTab()
             collisionPart.CanCollide = false
         end
     end
+    
 
 
 
@@ -613,6 +617,14 @@ local function SetupMobsTab()
                 if table.find(targetMobs, cleanName) then
                     local mobRoot = mob:FindFirstChild("HumanoidRootPart") or mob:GetPivot()
                     local distance = (rootPart.Position - mobRoot.Position).Magnitude
+                 
+                    if mob:FindFirstChild("Pet") ~= nil then
+                        currentMob = nil
+                    end
+
+                    if mob:FindFirstChild("Species") ~= cleanName then
+                        currentMob = nil
+                    end
                     
                     if distance < closestDistance then
                         closestDistance = distance
@@ -739,11 +751,7 @@ local function SetupMobsTab()
     })
 
     refreshMobList()
-    task.spawn(function()
-        while task.wait(80) do
-            refreshMobList()
-        end
-    end)
+    
 end
 
 local function SetupESPTab()
