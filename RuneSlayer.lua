@@ -14,7 +14,8 @@ local Esp
 local Teleport
 local ESPCache = {}
 
---local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
+-- Obfuscated to prevent webhook abuse ykk...  join the discord to get the notifys
+local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
 
 local PlayerESP = {
     Enabled = false,
