@@ -14,7 +14,7 @@ local Esp
 local Teleport
 local ESPCache = {}
 
-local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
+--local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
 
 local PlayerESP = {
     Enabled = false,
@@ -36,10 +36,20 @@ local CharmsESP = {
 }
 
 
+local AntiAFK = {
+    Enabled = true,
+    Interval = 0
+
+}
+
+
+local ClientSpoofName = false
+local NoFallDamage = false
+
 local function CreateMainWindow()
     Rayfield:Notify({
         Title = "UNIX Loaded",
-        Content = "ESP features activated for "..PlaceName,
+        Content = "U N I X - 1.0v has loaded successfully",
         Duration = 6.5,
         Image = "eye"
     })
@@ -48,7 +58,47 @@ local function CreateMainWindow()
         Name = "U N I X - " .. PlaceName,
         LoadingTitle = "U N I X - " .. PlaceName,
         LoadingSubtitle = "by 0x256",
-        Theme = "Default",
+        Theme = {
+            TextColor = Color3.fromRGB(255, 255, 255),
+        
+            Background = Color3.fromRGB(10, 10, 10),
+            Topbar = Color3.fromRGB(15, 15, 15),
+            Shadow = Color3.fromRGB(5, 5, 5),
+        
+            NotificationBackground = Color3.fromRGB(10, 10, 10),
+            NotificationActionsBackground = Color3.fromRGB(200, 200, 200),
+        
+            TabBackground = Color3.fromRGB(20, 20, 20),
+            TabStroke = Color3.fromRGB(25, 25, 25),
+            TabBackgroundSelected = Color3.fromRGB(50, 50, 50),
+            TabTextColor = Color3.fromRGB(255, 255, 255),
+            SelectedTabTextColor = Color3.fromRGB(200, 200, 200),
+        
+            ElementBackground = Color3.fromRGB(15, 15, 15),
+            ElementBackgroundHover = Color3.fromRGB(20, 20, 20),
+            SecondaryElementBackground = Color3.fromRGB(10, 10, 10),
+            ElementStroke = Color3.fromRGB(30, 30, 30),
+            SecondaryElementStroke = Color3.fromRGB(25, 25, 25),
+                    
+            SliderBackground = Color3.fromRGB(40, 40, 40),
+            SliderProgress = Color3.fromRGB(0, 150, 255),
+            SliderStroke = Color3.fromRGB(0, 170, 255),
+        
+            ToggleBackground = Color3.fromRGB(20, 20, 20),
+            ToggleEnabled = Color3.fromRGB(0, 150, 255),
+            ToggleDisabled = Color3.fromRGB(80, 80, 80),
+            ToggleEnabledStroke = Color3.fromRGB(0, 170, 255),
+            ToggleDisabledStroke = Color3.fromRGB(100, 100, 100),
+            ToggleEnabledOuterStroke = Color3.fromRGB(80, 80, 80),
+            ToggleDisabledOuterStroke = Color3.fromRGB(50, 50, 50),
+        
+            DropdownSelected = Color3.fromRGB(30, 30, 30),
+            DropdownUnselected = Color3.fromRGB(20, 20, 20),
+        
+            InputBackground = Color3.fromRGB(20, 20, 20),
+            InputStroke = Color3.fromRGB(50, 50, 50),
+            PlaceholderColor = Color3.fromRGB(150, 150, 150)
+        },
         DisableRayfieldPrompts = true,
         DisableBuildWarnings = true,
         ConfigurationSaving = {
@@ -62,17 +112,44 @@ local function CreateMainWindow()
             RememberJoins = true
         },
     })
-
-    Esp = Window:CreateTab("ESP", "eye")
+    Main = Window:CreateTab("Main", "home")
     Teleport = Window:CreateTab("Teleports", "arrow-right")
+    Esp = Window:CreateTab("ESP", "eye")
     Mobs = Window:CreateTab("Mobs", "axe")
+    Misc = Window:CreateTab("Misc", "arrow-up-right")
+end
+
+
+local function SetupMainTab()
+    Main:CreateSection("Main") 
+
+    Main:CreateKeybind({
+        Name = "Spawn Pet Instantly",
+        CurrentKeybind = "P",
+        HoldToInteract = false,
+        Flag = "SpawnPetKey",
+        Callback = function(key)
+            enabled = not enabled
+            if enabled then
+                Network = require(game.ReplicatedStorage.Modules.Network)
+                local plr = game:GetService("Players").LocalPlayer
+                t = Network.connect("MasterEvent", "FireServer", plr.Character, {
+                    ["Config"] = "WhistleCall"
+                })
+
+            end
+        end
+    })
 end
 
 
 
-
-
 local function SetupTeleportTab()
+
+
+    Teleport:CreateSection("Teleports")
+
+
     local function fetchValidTargets()
         local validNames = {}
         for _, user in ipairs(Players:GetPlayers()) do
@@ -104,9 +181,12 @@ local function SetupTeleportTab()
         end
     })
 
-    Teleport:CreateSlider({
+
+    Misc:CreateSection("Character")
+
+    Misc:CreateSlider({
         Name = "Walk Speed",
-        Range = {16, 100},
+        Range = {16, 300},
         Increment = 1,
         Suffix = " studs/s",
         CurrentValue = 16,
@@ -119,17 +199,47 @@ local function SetupTeleportTab()
             end
             
             if newValue > 16 then
-                walkLoop = RunService.Heartbeat:Connect(function()
+                local attachment0 = Instance.new("Attachment")
+                attachment0.Position = Vector3.new(-0.5, 0, 0)
+                
+                local attachment1 = Instance.new("Attachment")
+                attachment1.Position = Vector3.new(0.5, 0, 0)
+                
+                local trail = Instance.new("Trail")
+                trail.Lifetime = 0.5
+                trail.Transparency = NumberSequence.new(0.7)
+                trail.Color = ColorSequence.new(Color3.new(1, 1, 1))
+                trail.MinLength = 0.1
+                trail.FaceCamera = true
+                trail.Attachment0 = attachment0
+                trail.Attachment1 = attachment1
+                
+                walkLoop = RunService.Heartbeat:Connect(function(delta)
                     if LocalPlayer.Character then
                         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                         local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                         
                         if root and humanoid then
+                            if not attachment0.Parent then
+                                attachment0.Parent = root
+                                attachment1.Parent = root
+                                trail.Parent = root
+                            end
+                            
                             local moveDirection = humanoid.MoveDirection
                             if moveDirection.Magnitude > 0 then
                                 local velocity = moveDirection.Unit * walkSpeed
-                                root.Velocity = Vector3.new(velocity.X, root.Velocity.Y, velocity.Z)
+                                local gravity = Vector3.new(0, -workspace.Gravity * delta, 0)
+                                root.Velocity = Vector3.new(velocity.X, root.Velocity.Y + gravity.Y, velocity.Z)
                                 root.CFrame = CFrame.lookAt(root.Position, root.Position + moveDirection)
+                                
+                                if walkSpeed > 100 then
+                                    trail.Enabled = true
+                                else
+                                    trail.Enabled = false
+                                end
+                            else
+                                trail.Enabled = false
                             end
                         end
                     end
@@ -137,6 +247,271 @@ local function SetupTeleportTab()
             end
         end
     })
+
+
+    local UserInputService = game:GetService("UserInputService")
+    
+    local player = Players.LocalPlayer
+    local moveDirection = {
+        forward = Vector3.new(),
+        backward = Vector3.new(),
+        left = Vector3.new(),
+        right = Vector3.new(),
+        up = Vector3.new(),
+        down = Vector3.new(),
+    }
+    
+    local enabled = false
+    local speed = 70
+    local humanoidRoot
+    local coordinate
+    local humanoid
+    local lastValidPosition
+    
+
+    local function getUnitDirection()
+        local sum = Vector3.new()
+        for _, v3 in pairs(moveDirection) do
+            sum = sum + v3
+        end
+        return sum.Magnitude > 0 and sum.Unit or sum
+    end
+    
+    local function resetCoordinate()
+        if not humanoidRoot then return end
+        local cameraCFrame = Workspace.CurrentCamera.CFrame
+        coordinate = CFrame.fromMatrix(humanoidRoot.Position, cameraCFrame.XVector, cameraCFrame.YVector, cameraCFrame.ZVector)
+        lastValidPosition = coordinate.Position
+    end
+    
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.W then
+            moveDirection.forward = Vector3.new(0, 0, -1)
+        elseif input.KeyCode == Enum.KeyCode.S then
+            moveDirection.backward = Vector3.new(0, 0, 1)
+        elseif input.KeyCode == Enum.KeyCode.A then
+            moveDirection.left = Vector3.new(-1, 0, 0)
+        elseif input.KeyCode == Enum.KeyCode.D then
+            moveDirection.right = Vector3.new(1, 0, 0)
+        elseif input.KeyCode == Enum.KeyCode.Q then
+            moveDirection.up = Vector3.new(0, -1, 0)
+        elseif input.KeyCode == Enum.KeyCode.E then
+            moveDirection.down = Vector3.new(0, 1, 0)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        local code = input.KeyCode
+        if code == Enum.KeyCode.W then
+            moveDirection.forward = Vector3.new()
+        elseif code == Enum.KeyCode.S then
+            moveDirection.backward = Vector3.new()
+        elseif code == Enum.KeyCode.A then
+            moveDirection.left = Vector3.new()
+        elseif code == Enum.KeyCode.D then
+            moveDirection.right = Vector3.new()
+        elseif code == Enum.KeyCode.Q then
+            moveDirection.up = Vector3.new()
+        elseif code == Enum.KeyCode.E then
+            moveDirection.down = Vector3.new()
+        end
+    end)
+    
+
+    RunService.Heartbeat:Connect(function(deltaTime)
+        if enabled and humanoidRoot and coordinate then
+            local cameraCFrame = Workspace.CurrentCamera.CFrame
+            local direction = getUnitDirection()
+            
+            if direction.Magnitude > 0 then
+                local offset = direction * speed * deltaTime
+                coordinate = CFrame.fromMatrix(coordinate.Position, cameraCFrame.XVector, cameraCFrame.YVector, cameraCFrame.ZVector) * CFrame.new(offset.X, offset.Y, offset.Z)
+                lastValidPosition = coordinate.Position
+            end
+            
+            humanoidRoot.AssemblyLinearVelocity = Vector3.new()
+            humanoidRoot.CFrame = coordinate
+        end
+    end)
+    
+
+    player.CharacterAdded:Connect(function(character)
+        humanoidRoot = character:WaitForChild("HumanoidRootPart")
+        humanoid = character:WaitForChild("Humanoid")
+        resetCoordinate()
+    end)
+    
+    if player.Character then
+        humanoidRoot = player.Character:FindFirstChild("HumanoidRootPart")
+        humanoid = player.Character:FindFirstChild("Humanoid")
+        resetCoordinate()
+    end
+    
+
+    Misc:CreateKeybind({
+        Name = "Fly Bypass",
+        CurrentKeybind = "T",
+        HoldToInteract = false,
+        Flag = "FlyBypassKey",
+        Callback = function(key)
+            enabled = not enabled
+            if enabled then
+                resetCoordinate()
+                if humanoid then
+                    humanoid.PlatformStand = true
+                    humanoid.AutoRotate = false
+                end
+            else
+                if humanoid then
+                    humanoid.PlatformStand = false
+                    humanoid.AutoRotate = true
+                    if humanoidRoot and lastValidPosition then
+                        humanoidRoot.CFrame = CFrame.new(lastValidPosition)
+                        humanoidRoot.AssemblyLinearVelocity = Vector3.new()
+                    end
+                end
+            end
+        end
+    })
+
+    Misc:CreateToggle({
+        Name = "No Fall Damage",
+        CurrentValue = false,
+        Flag = "NoFallDamageEnabled",
+        Callback = function(enabled)
+            NoFallDamage = enabled
+
+            if enabled then
+                local value = Instance.new("StringValue")
+                value.Parent = workspace.Alive[LocalPlayer.Name]
+                value.Name = "NoFall"
+            else
+                workspace.Alive[LocalPlayer.Name].NoFall:Destroy()
+            end
+        end
+    })
+
+
+    
+    
+    Misc:CreateSection("Protection")
+    
+    local VirtualUser = game:GetService("VirtualUser")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+
+    local AntiAFKConnection
+    local LP
+
+    AntiAFK = Misc:CreateToggle({
+        Name = "Anti AFK",
+        CurrentValue = false,
+        Flag = "AntiAFKEnabled",
+        Callback = function(value)
+            if value then
+                if AntiAFKConnection then
+                    AntiAFKConnection:Disconnect()
+                end
+                AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.zero)
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightMeta, false, game)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightMeta, false, game)
+                    LP = tick()
+                end)
+            else
+                if AntiAFKConnection then
+                    AntiAFKConnection:Disconnect()
+                    AntiAFKConnection = nil
+                end
+            end
+        end
+    })
+
+    Misc:CreateToggle({
+        Name = "Spoof Name (Client Side)",
+        CurrentValue = false,
+        Flag = "SpoofNameEnabled",
+        Callback = function(enabled)
+            ClientSpoofName = enabled
+            local playerNameLabel = game:GetService("Players").LocalPlayer.PlayerGui.GUI.MainFrame.Level.PlayerName
+            local playerNameDisplayName = game:GetService("Players").LocalPlayer.DisplayName
+
+            local Alive_Name = workspace.Alive[playerNameDisplayName].BoolValues.PlayerName
+
+            if ClientSpoofName then
+                if not getgenv().originalPlayerName then
+                    getgenv().originalPlayerName = playerNameLabel.Text
+                end
+    
+                local rainbowConnection
+                rainbowConnection = RunService.RenderStepped:Connect(function()
+                    if not playerNameLabel or not playerNameLabel.Parent then
+                        if rainbowConnection then
+                            rainbowConnection:Disconnect()
+                        end
+                        return
+                    end
+                    
+                    local hue = (tick() % 5) / 5
+                    local color = Color3.fromHSV(hue, 1, 1)
+                    playerNameLabel.Text = "U N I X"
+                    playerNameLabel.TextColor3 = color
+                    
+                    if Alive_Name then
+                        Alive_Name.Value = "U N I X"
+                       
+                    end
+                end)
+                
+                if not _G.StoredRainbowConnection then
+                    _G.StoredRainbowConnection = rainbowConnection
+                else
+                    _G.StoredRainbowConnection:Disconnect()
+                    _G.StoredRainbowConnection = rainbowConnection
+                end
+            else
+                if _G.StoredRainbowConnection then
+                    _G.StoredRainbowConnection:Disconnect()
+                    _G.StoredRainbowConnection = nil
+                end
+                
+                local playerName = game:GetService("Players").LocalPlayer.DisplayName or game:GetService("Players").LocalPlayer.Name
+                playerNameLabel.Text = playerName
+                playerNameLabel.TextColor3 = Color3.new(1, 1, 1)
+
+                Alive_Name.Value = playerName
+            end
+        end
+    })
+
+
+    Misc:CreateSection("Stats")
+
+    local Stats = game:GetService("Stats")
+    local Labels = {
+        Ping = Misc:CreateLabel("Ping: 0 ms", "wifi"),
+        FPS = Misc:CreateLabel("FPS: 0/s", "monitor"),
+        Memory = Misc:CreateLabel("Memory: 0 MB", "database")
+    }
+
+    task.spawn(function()
+        while task.wait(0.25) do
+            local performance = {
+                Ping = math.floor(Stats.PerformanceStats.Ping:GetValue() * 100) / 100,
+                FPS = math.floor(1 / Stats.FrameTime * 10) / 10,
+                Memory = math.floor(Stats:GetTotalMemoryUsageMb() * 10) / 10
+            }
+
+            Labels.Ping:Set(string.format("Ping: %.2f ms", performance.Ping))
+            Labels.FPS:Set(string.format("FPS: %.1f/s", performance.FPS))
+            Labels.Memory:Set(string.format("Memory: %.1f MB", performance.Memory))
+        end
+    end)
+
+
+    
 
     local PlayerSelector = Teleport:CreateDropdown({
         Name = "Select Player",
@@ -471,17 +846,6 @@ local function SetupMobsTab()
             and mob.Torso:FindFirstChild("CollisionPart")
     end
 
-    Mobs:CreateSlider({
-        Name = "Hitbox Size",
-        Range = {1, 200},
-        Increment = 1,
-        CurrentValue = initialHitboxSize,
-        Flag = "HitboxSize",
-        Callback = function(newSize)
-            initialHitboxSize = newSize
-            processExistingMobs()
-        end
-    })
 
     Mobs:CreateSlider({
         Name = "Auto Farm Speed",
@@ -494,35 +858,7 @@ local function SetupMobsTab()
         end
     })
 
-    Mobs:CreateToggle({
-        Name = "Mobs Hitbox Expander",
-        CurrentValue = false,
-        Flag = "MobsHitboxExpanderEnabled",
-        Callback = function(enabled)
-            if enabled then
-                processExistingMobs()
-                hitboxConnection = workspace.Alive.ChildAdded:Connect(function(newMob)
-                    if mobFilter(newMob) then
-                        local attempts = 0
-                        repeat 
-                            task.wait(0.1)
-                            attempts = attempts + 1
-                        until getMobCollisionPart(newMob) or attempts >= 10
-                        
-                        if getMobCollisionPart(newMob) then
-                            updateMobHitbox(newMob)
-                            refreshMobList()
-                        end
-                    end
-                end)
-            else
-                if hitboxConnection then
-                    hitboxConnection:Disconnect()
-                    hitboxConnection = nil
-                end
-            end
-        end
-    })
+
 
 
     local function smoothMoveTo(position)
@@ -947,19 +1283,26 @@ local function SetupESPTab()
             local mobRoot = mob:FindFirstChild("HumanoidRootPart")
             
             local distance = (playerRoot and mobRoot) and (playerRoot.Position - mobRoot.Position).Magnitude or 0
+            local sizeMultiplier = math.clamp(1.3 - (distance / 100), 0.4, 1.3)
             
             local healthColor = health > 50 and Color3.new(0, 1, 0) or health > 20 and Color3.new(1, 1, 0) or Color3.new(1, 0, 0)
             
-            textLabel.Text = string.format("» %s «\n❤ HP: %d\n📏 Dist: %dm", 
+            textLabel.Text = string.format("%s \nHP: %d%%\n  Ds: %dm", 
                 mob.Name:match("^[^.]+"):upper(),
-                math.floor(health),
+                math.floor((health/humanoid.MaxHealth)*100),
                 math.floor(distance)
             )
             
             textLabel.TextColor3 = healthColor
-            textLabel.TextStrokeTransparency = 0.5
+            textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+            textLabel.TextStrokeTransparency = 0.2
             textLabel.TextXAlignment = Enum.TextXAlignment.Center
             textLabel.TextYAlignment = Enum.TextYAlignment.Center
+            textLabel.Font = Enum.Font.SciFi
+            textLabel.TextSize = 24 * sizeMultiplier
+            textLabel.TextScaled = false
+            textLabel.BackgroundTransparency = 1
+            textLabel.Size = UDim2.new(1.5 * sizeMultiplier, 0, 1.5 * sizeMultiplier, 0)
         end
 
         local function ApplyMobESP(mob)
@@ -1124,8 +1467,8 @@ local function InitializeESP()
 
         local billboard = createInstance("BillboardGui", {
             Adornee = head,
-            Size = UDim2.new(0, 200, 0, 80),
-            StudsOffset = Vector3.new(0, 3.5, 0),
+            Size = UDim2.new(0, 250, 0, 100),
+            StudsOffset = Vector3.new(0, 4, 0),
             AlwaysOnTop = true,
             ResetOnSpawn = false,
             Enabled = PlayerESP.Enabled,
@@ -1133,46 +1476,54 @@ local function InitializeESP()
         })
 
         local nameLabel = createInstance("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 20),
+            Size = UDim2.new(1, 0, 0, 25),
             Position = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1,
             TextColor3 = PlayerESP.Color,
-            TextSize = PlayerESP.TextSize,
-            Font = PlayerESP.Font,
+            TextSize = PlayerESP.TextSize + 2,
+            Font = Enum.Font.SciFi,
             Text = player.Name.." (L )",
+            TextStrokeTransparency = 0.5,
+            TextStrokeColor3 = Color3.new(0,0,0),
             Parent = billboard
         })
 
         local distanceLabel = createInstance("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 20),
-            Position = UDim2.new(0, 0, 0, 20),
+            Size = UDim2.new(1, 0, 0, 25),
+            Position = UDim2.new(0, 0, 0, 25),
             BackgroundTransparency = 1,
             TextColor3 = PlayerESP.Color,
             TextSize = PlayerESP.TextSize,
-            Font = PlayerESP.Font,
+            Font = Enum.Font.SciFi,
             Text = "",
+            TextStrokeTransparency = 0.5,
+            TextStrokeColor3 = Color3.new(0,0,0),
             Parent = billboard
         })
 
         local healthLabel = createInstance("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 20),
-            Position = UDim2.new(0, 0, 0, 40),
+            Size = UDim2.new(1, 0, 0, 25),
+            Position = UDim2.new(0, 0, 0, 50),
             BackgroundTransparency = 1,
             TextColor3 = PlayerESP.Color,
             TextSize = PlayerESP.TextSize,
-            Font = PlayerESP.Font,
+            Font = Enum.Font.SciFi,
             Text = "",
+            TextStrokeTransparency = 0.5,
+            TextStrokeColor3 = Color3.new(0,0,0),
             Parent = billboard
         })
 
         local coinsLabel = createInstance("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 20),
-            Position = UDim2.new(0, 0, 0, 60),
+            Size = UDim2.new(1, 0, 0, 25),
+            Position = UDim2.new(0, 0, 0, 75),
             BackgroundTransparency = 1,
             TextColor3 = PlayerESP.Color,
             TextSize = PlayerESP.TextSize,
-            Font = PlayerESP.Font,
+            Font = Enum.Font.SciFi,
             Text = "",
+            TextStrokeTransparency = 0.5,
+            TextStrokeColor3 = Color3.new(0,0,0),
             Parent = billboard
         })
 
@@ -1228,13 +1579,26 @@ local function InitializeESP()
                 if not localRoot then return end
                 
                 local distance = (localRoot.Position - rootPos).Magnitude
+                local sizeMultiplier = math.clamp(1.3 - (distance / 100), 0.4, 1.3)
+                espData.billboard.Size = UDim2.new(0, 250 * sizeMultiplier, 0, 100 * sizeMultiplier)
+                
                 espData.nameLabel.TextColor3 = PlayerESP.Color
                 espData.distanceLabel.Visible = PlayerESP.ShowDistance
                 espData.healthLabel.Visible = PlayerESP.ShowHealth
                 espData.coinsLabel.Visible = PlayerESP.ShowCoins
 
                 if PlayerESP.ShowDistance then
-                    espData.distanceLabel.Text = string.format("📏 %dm", math.floor(distance))
+                    local distanceText = math.floor(distance)
+                    local distanceColor = Color3.new(1, 1, 1)
+                    if distance < 20 then
+                        distanceColor = Color3.new(1, 0, 0)
+                    elseif distance < 50 then
+                        distanceColor = Color3.new(1, 1, 0)
+                    else
+                        distanceColor = Color3.new(0, 1, 0)
+                    end
+                    espData.distanceLabel.Text = string.format("Distance: %dm", distanceText)
+                    espData.distanceLabel.TextColor3 = distanceColor
                 end
                 if PlayerESP.ShowHealth and espData.humanoid then
                     local health = math.floor(espData.humanoid.Health)
@@ -1246,7 +1610,7 @@ local function InitializeESP()
                     local g = math.clamp(health/100, 0, 1)
                     local healthColor = Color3.fromRGB(r * 255, g * 255, 0)
                     
-                    espData.healthLabel.Text = string.format("❤️ %s %d%%", healthBar, health)
+                    espData.healthLabel.Text = string.format("HP: %s %d%%", healthBar, health)
                     espData.healthLabel.TextColor3 = healthColor
                 end
                 if PlayerESP.ShowCoins then
@@ -1336,5 +1700,6 @@ end
 
 CreateMainWindow()
 SetupESPTab()
+SetupMainTab()
 SetupTeleportTab()
 InitializeESP()
