@@ -436,6 +436,33 @@ local function SetupTeleportTab()
         end
     })
 
+    local hitboxConnection = nil
+
+    Misc:CreateToggle({
+        Name = "Show Hitbox's",
+        CurrentValue = false,
+        Flag = "ShowHitboxEnabled",
+        Callback = function(enabled)
+
+            showhitbox = not showhitbox
+
+            if showhitbox then
+
+                hitboxConnection = workspace.Effects.ChildAdded:Connect(function(v)
+                    if v.Name == "HitBox" then
+                        v.Transparency = 0.25
+                    end
+                end)
+            else
+                if hitboxConnection then
+                    hitboxConnection:Disconnect()
+                    hitboxConnection = nil
+                end
+            end
+
+        end
+    })
+
 
     
     
