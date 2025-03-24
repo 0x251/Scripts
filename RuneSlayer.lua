@@ -14,7 +14,6 @@ local Esp
 local Teleport
 local ESPCache = {}
 
--- Obfuscated to prevent webhook abuse ykk...  join the discord to get the notifys
 local Fairys = loadstring(game:HttpGet("https://raw.githubusercontent.com/0x251/Scripts/refs/heads/main/runeslayerFairy.lua"))()
 
 local PlayerESP = {
@@ -26,6 +25,15 @@ local PlayerESP = {
     ShowHealth = true,
     ShowCoins = true,
     ShowLevel = true
+}
+
+local OreESP = {
+    Enabled = false,
+    Color = Color3.new(1, 0, 0),
+    FillTransparency = 0.5,
+    OutlineTransparency = 0,
+    MaxDistance = 100,
+    DepthMode = "AlwaysOnTop"
 }
 
 local CharmsESP = {
@@ -56,8 +64,8 @@ local function CreateMainWindow()
     })
 
     Window = Rayfield:CreateWindow({
-        Name = "U N I X - " .. PlaceName,
-        LoadingTitle = "U N I X - " .. PlaceName,
+        Name = "U N I X - " .. PlaceName .. " - https://discord.gg/2sZV8k3B97",
+        LoadingTitle = "U N I X - " .. PlaceName .. " - https://discord.gg/2sZV8k3B97",
         LoadingSubtitle = "by 0x256",
         Theme = {
             TextColor = Color3.fromRGB(255, 255, 255),
@@ -141,6 +149,40 @@ local function SetupMainTab()
             end
         end
     })
+
+    Main:CreateToggle({
+        Name = "Instant Heal",
+        CurrentValue = false,
+        Flag = "InstantHealEnabled",
+        Callback = function(enabled)
+            InstantHeal = not InstantHeal
+
+
+            if InstantHeal then
+                Rayfield:Notify({
+                    Title = "Instant Heal",
+                    Content = "Will start healing you every 17 seconds, to bypass the anti-cheat.",
+                    Duration = 6.5,
+                    Image = "eye"
+                })
+            end
+
+            while InstantHeal do
+                Network = require(game.ReplicatedStorage.Modules.Network)
+                local plr = game:GetService("Players").LocalPlayer
+
+                local Data = {
+                    ["player"] = game:GetService("Players").LocalPlayer,
+                    ["Object"] = workspace:WaitForChild("Map"):WaitForChild("ElfVillage"):WaitForChild("Bed"),
+                    ["Action"] = "Sleep"
+                }
+                t = Network.connect("Interact", "FireServer", plr.Character, Data)
+                task.wait(17)
+            end
+
+        end
+    })
+    
 end
 
 
@@ -1429,6 +1471,131 @@ local function SetupESPTab()
                 end
             end
         })
+        local function ApplyOreESP(ore)
+            if not OreESP.TrackedOres then
+                OreESP.TrackedOres = {}
+            end
+            if OreESP.TrackedOres[ore] then return end
+            
+            local part = ore:FindFirstChildWhichIsA("BasePart")
+            if not part then return end
+    
+            local billboard = Instance.new("BillboardGui")
+            billboard.Adornee = part
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = game:GetService("CoreGui")
+    
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, 0, 0, 25)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = OreESP.Color
+            nameLabel.TextSize = 14
+            nameLabel.Font = Enum.Font.SciFi
+            nameLabel.Text = ore.Name
+            nameLabel.TextStrokeTransparency = 0.5
+            nameLabel.Parent = billboard
+    
+            local distanceLabel = Instance.new("TextLabel")
+            distanceLabel.Size = UDim2.new(1, 0, 0, 25)
+            distanceLabel.Position = UDim2.new(0, 0, 0, 25)
+            distanceLabel.BackgroundTransparency = 1
+            distanceLabel.TextColor3 = Color3.new(1, 1, 1)
+            distanceLabel.TextSize = 12
+            distanceLabel.Font = Enum.Font.SciFi
+            distanceLabel.TextStrokeTransparency = 0.5
+            distanceLabel.Parent = billboard
+    
+            local connection
+            connection = game:GetService("RunService").RenderStepped:Connect(function()
+                local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if localRoot and part then
+                    local distance = (localRoot.Position - part.Position).Magnitude
+                    distanceLabel.Text = string.format("%.1fm", distance)
+                    billboard.Enabled = distance <= OreESP.MaxDistance
+                end
+            end)
+    
+            OreESP.TrackedOres[ore] = {
+                billboard = billboard,
+                connection = connection
+            }
+        end
+    
+        Esp:CreateSection("Ore Esp / Harvestable")
+        Esp:CreateToggle({
+            Name = "Ore ESP / Harvestable",
+            CurrentValue = false,
+            Flag = "OreESPEnabled",
+            Callback = function(Value)
+                oreesp = not oreesp
+                if oreesp then
+                    if not OreESP.ChildAddedConn then
+                        OreESP.ChildAddedConn = workspace.Harvestable.ChildAdded:Connect(function(ore)
+                            if ore:IsA("Model") then
+                                ApplyOreESP(ore)
+                            end
+                        end)
+                    end
+                    for _, ore in ipairs(workspace.Harvestable:GetChildren()) do
+                        if ore:IsA("Model") then
+                            ApplyOreESP(ore)
+                        end
+                    end
+                else
+                    if OreESP.ChildAddedConn then
+                        OreESP.ChildAddedConn:Disconnect()
+                        OreESP.ChildAddedConn = nil
+                    end
+                    for ore, espData in pairs(OreESP.TrackedOres) do
+                        if espData.connection then
+                            espData.connection:Disconnect()
+                        end
+                        if espData.billboard then
+                            espData.billboard:Destroy()
+                        end
+                    end
+                    OreESP.TrackedOres = {}
+                end
+            end
+        })
+
+        Esp:CreateSlider({
+            Name = "Max Distance",
+            Range = {0, 1000},
+            Increment = 10,
+            CurrentValue = 100,
+            Flag = "OreESPDistance",
+            Callback = function(Value)
+                OreESP.MaxDistance = Value
+                for ore, espData in pairs(OreESP.TrackedOres) do
+                    if espData.connection then
+                        espData.connection:Disconnect()
+                    end
+                    espData.connection = game:GetService("RunService").RenderStepped:Connect(function()
+                        local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        local part = ore:FindFirstChildWhichIsA("BasePart")
+                        if localRoot and part then
+                            local distance = (localRoot.Position - part.Position).Magnitude
+                            espData.billboard.Enabled = distance <= Value
+                        end
+                    end)
+                end
+            end
+        })
+
+        Esp:CreateColorPicker({
+            Name = "Ore Color / Harvestable",
+            Color = Color3.new(1, 0, 0),
+            Flag = "OreESPColor",
+            Callback = function(Value)
+                OreESP.Color = Value
+                for ore, espData in pairs(OreESP.TrackedOres) do
+                    espData.billboard.TextLabel.TextColor3 = Value
+                end
+            end
+        })
     end
 
     CreatePlayerESPControls()
@@ -1436,8 +1603,9 @@ local function SetupESPTab()
     CreateCharmsControls()
     SetupMobsTab()
 end
-local function InitializeESP()
 
+local function InitializeESP()
+    
     local isPlayer = function(mob)
         return mob:IsA("Model") 
             and game.Players:GetPlayerFromCharacter(mob)
